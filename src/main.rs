@@ -1,13 +1,17 @@
 mod map;
 mod map_builder;
 mod player;
+mod camera;
 pub mod prelude {
     pub use bracket_lib::prelude::*;
     pub const SCREEN_WIDTH: i32 = 80;
     pub const SCREEN_HEIGHT: i32 = 50;
+    pub const DISPLAY_WIDTH: i32 = SCREEN_WIDTH / 2;
+    pub const DISPLAY_HEIGHT: i32 = SCREEN_HEIGHT / 2;
     pub use crate::map::*;
     pub use crate::player::*;
     pub use crate::map_builder::*;
+    pub use crate::camera::*;
 }
 
 use prelude::*;
@@ -23,6 +27,7 @@ const FRAME_DURATION : f32 = 75.0;
 struct State {
     map: Map,
     player: Player,
+    camera: Camera,
     frame_time: f32,
     score: i32, 
     mode: GameMode,
@@ -36,6 +41,7 @@ impl State {
         State {
             map: map_builder.map,
             player: Player::new(map_builder.player_start),
+            camera: Camera::new(map_builder.player_start),
             score: 0,
             frame_time: 0.0,
             mode: GameMode::Playing,
@@ -48,7 +54,7 @@ impl State {
         if self.frame_time > FRAME_DURATION {
             self.frame_time = 0.0;
         }
-        self.player.render(ctx);
+        // self.player.render(ctx);
        // self.mode = GameMode::End;
         ctx.print(0, 1, &format!("Score {}", self.score));
     }
@@ -96,16 +102,19 @@ impl State {
 // implement the trait GameState for struct State
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        match self.mode {
-            GameMode::Menu => self.main_menu(ctx),
-            GameMode::End => self.dead(ctx),
-            GameMode::Playing => {
+        // match self.mode {
+        //     GameMode::Menu => self.main_menu(ctx),
+        //     GameMode::End => self.dead(ctx),
+        //     GameMode::Playing => {
+                ctx.set_active_console(0);
                 ctx.cls();
-                self.player.update(ctx, &self.map);
-                self.map.render(ctx);
-                self.player.render(ctx);
-            }
-        }
+                ctx.set_active_console(1);
+                ctx.cls();
+                self.player.update(ctx, &self.map, &mut self.camera);
+                self.map.render(ctx, &self.camera);
+                self.player.render(ctx, &self.camera);
+            // }
+        // }
         // ctx.cls();
         // ctx.print(1, 1, "Hello, Bracket Terminal!");
         // ctx.draw_box(5, 5, 20, 20, WHITE_SMOKE, RED2);
@@ -113,9 +122,15 @@ impl GameState for State {
 }
 
 fn main() -> BError {
-    let context = BTermBuilder::simple80x50()
-        .with_title("Flappy Dragon")
+    let context = BTermBuilder::new()
+        .with_title("Rusty Rogue")
+        .with_dimensions(DISPLAY_WIDTH, DISPLAY_HEIGHT)
+        .with_tile_dimensions(32, 32)
+        .with_resource_path("src/resources/")
+        .with_font("dungeonfont.png", 32, 32)
+        .with_simple_console(DISPLAY_WIDTH, DISPLAY_HEIGHT, "dungeonfont.png")
+        .with_simple_console_no_bg(DISPLAY_WIDTH, DISPLAY_HEIGHT, "dungeonfont.png")
         .build()?;
-
+    
     main_loop(context, State::new())
 }
