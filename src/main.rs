@@ -1,4 +1,16 @@
-use bracket_lib::prelude::*;
+mod map;
+mod map_builder;
+mod player;
+pub mod prelude {
+    pub use bracket_lib::prelude::*;
+    pub const SCREEN_WIDTH: i32 = 80;
+    pub const SCREEN_HEIGHT: i32 = 50;
+    pub use crate::map::*;
+    pub use crate::player::*;
+    pub use crate::map_builder::*;
+}
+
+use prelude::*;
 
 enum GameMode {
     Menu,
@@ -6,29 +18,27 @@ enum GameMode {
     End,
 }
 
-// const SCREEN_WIDTH : i32 = 80;
-// const SCREEN_HEIGHT: i32 = 50;
 const FRAME_DURATION : f32 = 75.0;
 
 struct State {
+    map: Map,
     player: Player,
     frame_time: f32,
     score: i32, 
     mode: GameMode,
 }
-struct Player {
-    x: i32,
-    y: i32,
-    velocity: f32,
-}
 
 impl State {
     fn new() -> Self {
+        let mut rng = RandomNumberGenerator::new();
+        let map_builder = MapBuilder::build(&mut rng);
+
         State {
-            player: Player::new(5, 25),
+            map: map_builder.map,
+            player: Player::new(map_builder.player_start),
             score: 0,
             frame_time: 0.0,
-            mode: GameMode::Menu,
+            mode: GameMode::Playing,
         }
     }
 
@@ -39,12 +49,14 @@ impl State {
             self.frame_time = 0.0;
         }
         self.player.render(ctx);
-        self.mode = GameMode::End;
+       // self.mode = GameMode::End;
         ctx.print(0, 1, &format!("Score {}", self.score));
     }
 
     fn restart(&mut self) {
-        self.player = Player::new(5, 25);
+        let mut rng = RandomNumberGenerator::new();
+        let map_builder = MapBuilder::build(&mut rng);
+        self.player = Player::new(map_builder.player_start);
         self.frame_time = 0.0;
         self.mode = GameMode::Playing;
         self.score = 0;
@@ -81,34 +93,18 @@ impl State {
     }
 }
 
-impl Player {
-    fn new(x: i32, y: i32) -> Self {
-        Player {
-            x,
-            y,
-            velocity: 0.0,
-        }
-    }
-
-    // also can use RGB::from_u8() or RGB::from_hex() to get color
-    fn render(&mut self, ctx: &mut BTerm) {
-        ctx.set(
-            0,
-            self.y,
-            YELLOW,
-            BLACK,
-            to_cp437('@')
-        );
-    }
-}
-
 // implement the trait GameState for struct State
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         match self.mode {
             GameMode::Menu => self.main_menu(ctx),
             GameMode::End => self.dead(ctx),
-            GameMode::Playing => self.play(ctx),
+            GameMode::Playing => {
+                ctx.cls();
+                self.player.update(ctx, &self.map);
+                self.map.render(ctx);
+                self.player.render(ctx);
+            }
         }
         // ctx.cls();
         // ctx.print(1, 1, "Hello, Bracket Terminal!");
